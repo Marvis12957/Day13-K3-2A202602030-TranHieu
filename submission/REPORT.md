@@ -8,7 +8,7 @@
 
 - Tên nhóm: K3-2A202602030-TranHieu (Nhóm Day 13 K3)
 - Repository URL: https://github.com/Marvis12957/Day13-K3-VinBrothers
-- Commit evidence & report: `e4976c6` (docs(submission): add Langfuse screenshot evidence)
+- Commit dashboard/evidence: [0c82117](https://github.com/Marvis12957/Day13-K3-VinBrothers/commit/0c821178e634824d92eb0db8548b77030e265cb3)
 - Thành viên và vai trò:
   - Phạm Quốc Tuấn (2A202601983) — Vai A: Logging & Middleware (branch `2a202601983-PhamQuocTuan`)
   - Trần Hiếu (2A202602030) — Vai B: Security & Compliance / PII (branch `hieu`)
@@ -17,13 +17,14 @@
 
 ## 2. Kết quả kỹ thuật
 
-- Điểm `validate_logs.py`: **100/100** — 22 log record, 0 record thiếu required
-  field, 0 record thiếu enrichment, 10+ unique correlation ID, 0 PII leak.
+- Điểm `validate_logs.py`: **100/100** — 38 log record, 0 record thiếu required
+  field, 0 record thiếu enrichment, 19 unique correlation ID, 0 PII leak.
+  Evidence: [validator_output.txt](evidence/validator_output.txt).
   (Đo trên `main`, `load_test.py --concurrency 5`, API local.)
 - Tổng số traces: **38 traces trên Langfuse** (trong đó 17 trace có tag `cid:*` từ
   test của nhóm — vượt yêu cầu tối thiểu ≥10). Key Langfuse đã cấu hình trong
   `.env`, `/health` báo `tracing_enabled: true`. Danh sách 15 trace thật:
-  `submission/evidence/traces-list.md`.
+  [traces-list.md](evidence/traces-list.md).
 - Số PII leak còn lại: **0** (`validate_logs.py` báo `Potential PII leaks detected: 0`;
   `grep -iE "@|4111|0987654321" data/logs.jsonl` không có kết quả).
 - Link/đường dẫn dashboard: contract `config/dashboard.yaml` (6 panel), spec chi
@@ -49,8 +50,8 @@
   `user_id` không bao giờ vào log dạng thô — chỉ có `user_id_hash` (SHA-256, 12 ký tự đầu).
 - Evidence trace waterfall: trace `b44173150cb303648bf06956e978e69d` (challenge
   `rag_slow`) — waterfall 3 tầng `run`(3.682s) → `retrieve`(2.506s) +
-  `generate`(0.166s). File evidence: `submission/evidence/trace-waterfall.md`;
-  span chi tiết trong `submission/evidence/vai-d-challenge.md`.
+  `generate`(0.166s). File evidence: [trace-waterfall.md](evidence/trace-waterfall.md);
+  span chi tiết trong [vai-d-challenge.md](evidence/vai-d-challenge.md).
 
   ![Trace waterfall rag_slow trên Langfuse](evidence/langfuse-trace-waterfall.png)
 
@@ -134,7 +135,7 @@
 
 ## 6. Điều tra challenge
 
-> Vai D chủ trì (TICKET D3) — đã chạy xong, chi tiết: `submission/evidence/vai-d-challenge.md`.
+> Vai D chủ trì (TICKET D3) — đã chạy xong, chi tiết: [vai-d-challenge.md](evidence/vai-d-challenge.md).
 
 - Challenge ID: `day13-k3-observability-v1` (cohort K3, incident `rag_slow`,
   affected feature `refund`, `latency_threshold_ms` 2000, seed 1303)
@@ -156,14 +157,18 @@
   `docs/alerts.md#alert-1` theo luồng Metrics→Traces→Logs; theo dõi span
   `retrieve` như một SLI riêng (baseline tức thời, incident ~2500ms).
 
+  ![Metrics và log của released challenge](evidence/challenge-evidence.png)
+
+  Bản HTML có thể kiểm tra lại: [challenge-evidence.html](evidence/challenge-evidence.html).
+
 ## 7. Đóng góp cá nhân
 
 Với mỗi thành viên, ghi rõ nhiệm vụ và link commit/PR tương ứng.
 
 | Thành viên | Phần việc | Commit/PR | Điều đã học |
 |---|---|---|---|
-| Tuấn (Vai A — Logging & Middleware) | Correlation ID middleware (`app/middleware.py`), enrich log context + giữ correlation ID khi lỗi 500 (`app/main.py`), cập nhật `scripts/load_test.py` | branch `2a202601983-PhamQuocTuan`, commit "feat(vai-a): correlation ID middleware + log context enrichment (TICKET A1+A2)" | Vì sao phải `clear_contextvars()` đầu mỗi request để tránh rò rỉ context giữa các request chạy đồng thời; cách structlog contextvars tự động đính kèm field vào mọi log trong cùng request |
-| Trần Hiếu (2A202602030) — Vai B: Security & PII | Bật `scrub_event` quét **toàn bộ** trường string/dict (`app/logging_config.py`), thêm pattern `passport` + `address_vn` (`app/pii.py`), lưu evidence log PII | branch `hieu`: `89f50bc` (done block 1), `14e8699` (fix bỏ duplicate trace + `structlog.configure()` trống + global scrub) | Scrubbing phải chạy **trước** khi render JSON và ghi file; regex cần boundary `\b`/`(?<!\w)` để không cắt nhầm log hợp lệ; một `structlog.configure()` trống cuối hàm là code chết dễ phá logging khi đổi version |
-| Thái Đức (2A202601581) — Vai C: Metrics, Tracing & Alerting | C1 `error_rate_pct` trong `app/metrics.py`; C2 đưa correlation ID vào trace (`app/agent.py`); C4 SLO note + 3 alert rule + 3 runbook (`config/slo.yaml`, `config/alert_rules.yaml`, `docs/alerts.md`); C5 span cho `retrieve`/`generate`; C3 `scripts/setup_prompts.py` + tạo prompt `day13-chat` v1/v2 trên Langfuse | branch `2A202601581-ThaiDuc`: `db29bb1` (C1), `45e65f4` (C2+C5), `66ed219` (C4), `d6425d3` (C3) | Error rate phải tính trên tổng request đã nhận, không phải trên request thành công — nếu chia cho `TRAFFIC` thì càng nhiều lỗi tỉ lệ càng bị làm nhẹ đi. Alert cần ngưỡng thời gian duy trì, nếu không thì mọi spike ngắn đều gọi on-call. Và khi ticket yêu cầu thêm `correlation_id` vào trace metadata thì public test `test_agent_prompt_trace.py` fail vì test assert metadata bằng đúng 4 key prompt — nên phải chuyển sang tag trace + generation metadata để vừa nối được trace ↔ log vừa giữ pytest pass. |
-| Trung Hiếu (2A202602030) — Vai D: QA, Incident & Điều phối | Điều phối + review/merge 3 branch thành viên về `main`; chạy baseline + điều tra challenge `rag_slow` theo luồng Metrics→Traces→Logs; tạo prompt v1/v2 + bằng chứng label/rollback; lấp `REPORT.md` và evidence Vai D | `main` merge `9e0019f`; evidence `submission/evidence/vai-d-challenge.md`, `vai-d-prompt-version.md` | Luồng điều tra phải bắt đầu từ metrics để biết **triệu chứng**, trace để **khoanh vùng**, log để **chứng minh** — không được kết luận từ một lớp duy nhất; span `retrieve` 2.506s khớp delay 2.5s mới là bằng chứng root cause, không phải latency tổng |
+| Tuấn (Vai A — Logging & Middleware) | Correlation ID middleware (`app/middleware.py`), enrich log context + giữ correlation ID khi lỗi 500 (`app/main.py`), cập nhật `scripts/load_test.py` | [6fe864f](https://github.com/Marvis12957/Day13-K3-VinBrothers/commit/6fe864f) | Vì sao phải `clear_contextvars()` đầu mỗi request để tránh rò rỉ context giữa các request chạy đồng thời; cách structlog contextvars tự động đính kèm field vào mọi log trong cùng request |
+| Trần Hiếu (2A202602030) — Vai B: Security & PII | Bật `scrub_event` quét **toàn bộ** trường string/dict (`app/logging_config.py`), thêm pattern `passport` + `address_vn` (`app/pii.py`), lưu evidence log PII | [89f50bc](https://github.com/Marvis12957/Day13-K3-VinBrothers/commit/89f50bc), [14e8699](https://github.com/Marvis12957/Day13-K3-VinBrothers/commit/14e8699) | Scrubbing phải chạy **trước** khi render JSON và ghi file; regex cần boundary `\b`/`(?<!\w)` để không cắt nhầm log hợp lệ; một `structlog.configure()` trống cuối hàm là code chết dễ phá logging khi đổi version |
+| Thái Đức (2A202601581) — Vai C: Metrics, Tracing & Alerting | C1 `error_rate_pct` trong `app/metrics.py`; C2 đưa correlation ID vào trace (`app/agent.py`); C4 SLO note + 3 alert rule + 3 runbook (`config/slo.yaml`, `config/alert_rules.yaml`, `docs/alerts.md`); C5 span cho `retrieve`/`generate`; C3 `scripts/setup_prompts.py` + tạo prompt `day13-chat` v1/v2 trên Langfuse | [db29bb1](https://github.com/Marvis12957/Day13-K3-VinBrothers/commit/db29bb1), [45e65f4](https://github.com/Marvis12957/Day13-K3-VinBrothers/commit/45e65f4), [66ed219](https://github.com/Marvis12957/Day13-K3-VinBrothers/commit/66ed219), [d6425d3](https://github.com/Marvis12957/Day13-K3-VinBrothers/commit/d6425d3) | Error rate phải tính trên tổng request đã nhận, không phải trên request thành công — nếu chia cho `TRAFFIC` thì càng nhiều lỗi tỉ lệ càng bị làm nhẹ đi. Alert cần ngưỡng thời gian duy trì, nếu không thì mọi spike ngắn đều gọi on-call. Và khi ticket yêu cầu thêm `correlation_id` vào trace metadata thì public test `test_agent_prompt_trace.py` fail vì test assert metadata bằng đúng 4 key prompt — nên phải chuyển sang tag trace + generation metadata để vừa nối được trace ↔ log vừa giữ pytest pass. |
+| Trung Hiếu (2A202602030) — Vai D: QA, Incident & Điều phối | Điều phối + review/merge 3 branch thành viên về `main`; chạy baseline + điều tra challenge `rag_slow` theo luồng Metrics→Traces→Logs; tạo prompt v1/v2 + bằng chứng label/rollback; lấp `REPORT.md` và evidence Vai D | [9e0019f](https://github.com/Marvis12957/Day13-K3-VinBrothers/commit/9e0019f); evidence [vai-d-challenge.md](evidence/vai-d-challenge.md), [vai-d-prompt-version.md](evidence/vai-d-prompt-version.md) | Luồng điều tra phải bắt đầu từ metrics để biết **triệu chứng**, trace để **khoanh vùng**, log để **chứng minh** — không được kết luận từ một lớp duy nhất; span `retrieve` 2.506s khớp delay 2.5s mới là bằng chứng root cause, không phải latency tổng |
 | | | | |

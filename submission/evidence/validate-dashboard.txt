@@ -1,5 +1,5 @@
 === Dashboard Contract Validation ===
-H?P L?: 6/6 panel c? trong dashboard contract.
+HỢP LỆ: 6/6 panel có trong dashboard contract.
 
-Ki?m tra: config/dashboard.yaml (schema_version=1, time_range=60m, refresh=30s)
+Kiểm tra: config/dashboard.yaml (schema_version=1, time_range=60m, refresh=30s)
 6 panel: latency, traffic, errors, cost, tokens, quality

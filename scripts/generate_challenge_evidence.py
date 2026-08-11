@@ -1,0 +1,82 @@
+"""Generate a reviewable challenge metrics-and-logs evidence page from lab data."""
+
+from __future__ import annotations
+
+import argparse
+import html
+import json
+import math
+from pathlib import Path
+
+
+LOG_PATH = Path("data/logs.jsonl")
+CHALLENGE_PATH = Path("config/challenge.json")
+
+
+def load_jsonl(path: Path) -> list[dict]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def percentile_95(values: list[int]) -> int:
+    return sorted(values)[math.ceil(len(values) * 0.95) - 1]
+
+
+def render(out: Path) -> None:
+    challenge = json.loads(CHALLENGE_PATH.read_text(encoding="utf-8"))
+    sessions = {query["session_id"] for query in challenge["queries"]}
+    records = load_jsonl(LOG_PATH)
+    responses = [
+        record
+        for record in records
+        if record.get("event") == "response_sent" and record.get("session_id") in sessions
+    ]
+    if len(responses) != len(sessions):
+        raise SystemExit("Challenge response records are incomplete; run the released challenge first.")
+
+    failed = [
+        record
+        for record in records
+        if record.get("event") == "request_failed" and record.get("session_id") in sessions
+    ]
+    p95 = percentile_95([record["latency_ms"] for record in responses])
+    error_rate = len(failed) / (len(responses) + len(failed)) * 100
+    rows = "".join(
+        "<tr>"
+        f"<td><code>{html.escape(record['correlation_id'])}</code></td>"
+        f"<td>{html.escape(record['session_id'])}</td>"
+        f"<td>{record['latency_ms']} ms</td>"
+        f"<td>{record['tokens_in']} / {record['tokens_out']}</td>"
+        f"<td>${record['cost_usd']:.6f}</td>"
+        f"<td>{record['quality_score']:.1f}</td>"
+        "</tr>"
+        for record in responses
+    )
+    page = f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenge evidence — {challenge['challenge_id']}</title>
+<style>
+  :root {{ color-scheme:dark; --bg:#09111f; --card:#13213a; --line:#293b59; --text:#eef4ff; --muted:#a6b4cb; --red:#fb7185; --green:#36d399; --blue:#60a5fa; }}
+  * {{ box-sizing:border-box }} body {{ margin:0; background:var(--bg); color:var(--text); font:15px/1.45 Inter,Segoe UI,Arial,sans-serif; }} main {{ max-width:1450px; margin:auto; padding:42px; }} .eyebrow {{ color:#93c5fd; font-size:12px; letter-spacing:.12em; font-weight:700; text-transform:uppercase }} h1 {{ margin:6px 0; font-size:30px }} p {{ color:var(--muted) }} .cards {{ display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin:28px 0 }} .card {{ background:linear-gradient(145deg,#182946,#101c31); border:1px solid var(--line); border-radius:16px; padding:18px }} .label {{ color:var(--muted); font-size:12px }} .value {{ margin-top:6px; font-size:26px; font-weight:800 }} .bad {{ color:var(--red) }} .good {{ color:var(--green) }} .note {{ border-left:3px solid var(--red); background:#271927; border-radius:8px; padding:13px 15px; margin:20px 0 }} table {{ border-collapse:separate; border-spacing:0; width:100%; overflow:hidden; border:1px solid var(--line); border-radius:14px; background:var(--card) }} caption {{ text-align:left; font-size:18px; font-weight:700; padding:18px 0 12px }} th,td {{ padding:13px 16px; text-align:left; border-bottom:1px solid var(--line) }} th {{ color:#b8c9e8; background:#172844; font-size:12px; text-transform:uppercase; letter-spacing:.05em }} tr:last-child td {{ border-bottom:0 }} code {{ color:#93c5fd; font-family:Consolas,monospace }} .source {{ margin-top:18px; font-size:12px; color:var(--muted) }} @media(max-width:900px) {{ .cards {{ grid-template-columns:repeat(2,1fr) }} main {{ padding:20px }} table {{ font-size:12px }} th,td {{ padding:10px }} }}
+</style></head><body><main>
+<div class="eyebrow">Metrics → logs evidence · released challenge</div><h1>{challenge['challenge_id']}</h1>
+<p>Incident <b>{challenge['incident']}</b> · affected feature <b>{challenge['affected_feature']}</b> · source: <code>data/logs.jsonl</code></p>
+<section class="cards"><article class="card"><div class="label">Challenge requests</div><div class="value">{len(responses)}</div></article><article class="card"><div class="label">P95 latency</div><div class="value bad">{p95} ms</div></article><article class="card"><div class="label">Challenge threshold</div><div class="value">{challenge['latency_threshold_ms']} ms</div></article><article class="card"><div class="label">Error rate</div><div class="value good">{error_rate:.1f}%</div></article><article class="card"><div class="label">Trace to inspect</div><div class="value"><code>b441…e69d</code></div></article></section>
+<div class="note"><b>Symptom:</b> P95 {p95} ms exceeds the released challenge threshold of {challenge['latency_threshold_ms']} ms. The request errors remain at {error_rate:.1f}%.</div>
+<table><caption>Challenge response logs — correlation IDs join directly to the Langfuse trace tag</caption><thead><tr><th>Correlation ID</th><th>Session</th><th>Latency</th><th>Tokens in/out</th><th>Cost</th><th>Quality</th></tr></thead><tbody>{rows}</tbody></table>
+<div class="source">Generated from the released <code>config/challenge.json</code> and matching <code>response_sent</code> records in <code>data/logs.jsonl</code>. No user identifier or message content is displayed.</div>
+</main></body></html>"""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(page, encoding="utf-8")
+    print(f"Challenge evidence saved: {out}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Generate challenge metrics and log evidence from local records")
+    parser.add_argument("--out", type=Path, default=Path("submission/evidence/challenge-evidence.html"))
+    args = parser.parse_args()
+    render(args.out)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
