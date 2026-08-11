@@ -22,7 +22,8 @@
   (Đo trên `main`, `load_test.py --concurrency 5`, API local.)
 - Tổng số traces: **38 traces trên Langfuse** (trong đó 17 trace có tag `cid:*` từ
   test của nhóm — vượt yêu cầu tối thiểu ≥10). Key Langfuse đã cấu hình trong
-  `.env`, `/health` báo `tracing_enabled: true`.
+  `.env`, `/health` báo `tracing_enabled: true`. Danh sách 15 trace thật:
+  `submission/evidence/traces-list.md`.
 - Số PII leak còn lại: **0** (`validate_logs.py` báo `Potential PII leaks detected: 0`;
   `grep -iE "@|4111|0987654321" data/logs.jsonl` không có kết quả).
 - Link/đường dẫn dashboard: contract `config/dashboard.yaml` (6 panel), spec chi
@@ -48,7 +49,8 @@
   `user_id` không bao giờ vào log dạng thô — chỉ có `user_id_hash` (SHA-256, 12 ký tự đầu).
 - Evidence trace waterfall: trace `b44173150cb303648bf06956e978e69d` (challenge
   `rag_slow`) — waterfall 3 tầng `run`(3.682s) → `retrieve`(2.506s) +
-  `generate`(0.166s). Chi tiết span trong `submission/evidence/vai-d-challenge.md`.
+  `generate`(0.166s). File evidence: `submission/evidence/trace-waterfall.md`;
+  span chi tiết trong `submission/evidence/vai-d-challenge.md`.
   Code: `run()` là generation, `retrieve()` và `FakeLLM.generate()` bọc
   `@observe(as_type="span")` nên waterfall có 3 tầng.
 - Giải thích một span đáng chú ý: span `retrieve` là span cần theo dõi nhất, vì
@@ -82,9 +84,11 @@
 ## 5. Dashboard, SLO và alerts
 
 - Kết quả `validate_dashboard.py`: **`HỢP LỆ: 6/6 panel có trong dashboard contract.`**
-- Evidence dashboard: spec chi tiết 6 panel ở `docs/dashboard-spec.md` (đối chiếu
-  contract `config/dashboard.yaml`); số liệu runtime baseline + incident từ
-  `GET /metrics` và `data/logs.jsonl` trong
+  (file: `submission/evidence/validate-dashboard.txt`)
+- Evidence dashboard: ảnh dashboard 6 panel `submission/evidence/dashboard.png`
+  (sinh từ `data/logs.jsonl` bằng `scripts/generate_dashboard.py`); spec chi tiết
+  6 panel ở `docs/dashboard-spec.md` (đối chiếu contract `config/dashboard.yaml`);
+  số liệu runtime baseline + incident từ `GET /metrics` và `data/logs.jsonl` trong
   `submission/evidence/vai-d-challenge.md`. 6 panel theo
   `config/dashboard.yaml`: latency (P50/P95/P99, ms) · traffic (requests) ·
   errors (`error_rate_pct` + breakdown, %) · cost (USD) · tokens (in/out) ·
