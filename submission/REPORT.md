@@ -51,6 +51,9 @@
   `rag_slow`) — waterfall 3 tầng `run`(3.682s) → `retrieve`(2.506s) +
   `generate`(0.166s). File evidence: `submission/evidence/trace-waterfall.md`;
   span chi tiết trong `submission/evidence/vai-d-challenge.md`.
+
+  ![Trace waterfall rag_slow trên Langfuse](evidence/langfuse-trace-waterfall.png)
+
   Code: `run()` là generation, `retrieve()` và `FakeLLM.generate()` bọc
   `@observe(as_type="span")` nên waterfall có 3 tầng.
 - Giải thích một span đáng chú ý: span `retrieve` là span cần theo dõi nhất, vì
@@ -81,6 +84,14 @@
   (production→v2) rồi `--promote 1` (rollback về v1) — log lệnh + trace ID trong
   `submission/evidence/vai-d-prompt-version.md`.
 
+  ![Prompt day13-chat v1 với labels production và baseline](evidence/langfuse-prompt-v1.png)
+
+  ![Prompt day13-chat v2 với label candidate](evidence/langfuse-prompt-v2.png)
+
+  ![Production được promote sang v2](evidence/langfuse-prompt-promote-v2.png)
+
+  ![Production được rollback về v1](evidence/langfuse-prompt-rollback-v1.png)
+
 ## 5. Dashboard, SLO và alerts
 
 - Kết quả `validate_dashboard.py`: **`HỢP LỆ: 6/6 panel có trong dashboard contract.`**
@@ -93,6 +104,8 @@
   `config/dashboard.yaml`: latency (P50/P95/P99, ms) · traffic (requests) ·
   errors (`error_rate_pct` + breakdown, %) · cost (USD) · tokens (in/out) ·
   quality (score 0–1). Nguồn dữ liệu: `data/logs.jsonl` + `GET /metrics`.
+
+  ![Dashboard sáu panel](evidence/dashboard.png)
 - SLO đã chọn và lý do (`config/slo.yaml`, cửa sổ 28 ngày):
   - `latency_p95_ms ≤ 3000`, target 99.5% — baseline đo được P95 ≈ 160ms nên
     ngưỡng này rất thoáng cho vận hành bình thường, nhưng vẫn bắt được incident
