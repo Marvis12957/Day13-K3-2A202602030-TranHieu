@@ -7,7 +7,7 @@
 ## 1. Thông tin nhóm
 
 - Tên nhóm: K3-2A202602030-TranHieu (Nhóm Day 13 K3)
-- Repository URL: https://github.com/Marvis12957/Day13-K3-2A202602030-TranHieu
+- Repository URL: https://github.com/Marvis12957/Day13-K3-VinBrothers
 - Commit evidence & report: `e4976c6` (docs(submission): add Langfuse screenshot evidence)
 - Thành viên và vai trò:
   - Phạm Quốc Tuấn (2A202601983) — Vai A: Logging & Middleware (branch `2a202601983-PhamQuocTuan`)
