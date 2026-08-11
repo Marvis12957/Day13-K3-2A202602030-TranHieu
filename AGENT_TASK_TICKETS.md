@@ -3,6 +3,7 @@
 > Cách dùng: mỗi thành viên copy **nguyên khối ticket** của mình (từ `## TICKET...` đến `⚠️ Cấm`) dán vào agent coding.
 > Sau khi agent xong: chạy phần «✅ Kiểm tra» rồi báo Trung Hiếu để chạy load test chung.
 > Nguyên tắc chung (mọi ticket): **KHÔNG hard-code** để qua validator, không tự tạo/sửa `config/challenge.json`, không commit `.env`/secret.
+> 🎓 **BẮT BUỘC với mọi thành viên (điểm B1+B2 = 40đ):** sau khi agent xong, bạn PHẢI tự commit phần việc của mình (message ghi rõ tên + ticket, ví dụ `Tuấn: feat CP1 correlation id middleware`) và tự điền dòng của mình vào bảng «Đóng góp cá nhân» trong `submission/REPORT.md` kèm link commit — giám khảo sẽ đối chiếu với Git. Không commit thay cho người khác.
 
 ---
 
@@ -214,3 +215,4 @@ git status --short
 - [ ] D1–D2 → dashboard 6/6 + baseline
 - [ ] D3 → challenge root cause có evidence 3 lớp
 - [ ] D4 → `pytest` pass, REPORT + evidence đầy đủ, không lộ secret
+- [ ] **Mỗi thành viên đã tự commit phần việc + kê khai trong REPORT (B1+B2=40đ)**
