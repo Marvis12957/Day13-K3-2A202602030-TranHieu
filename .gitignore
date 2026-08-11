@@ -7,3 +7,5 @@ data/audit.jsonl
 .env
 .pytest_cache/
 .antigravity/
+server.err.log
+server.out.log
