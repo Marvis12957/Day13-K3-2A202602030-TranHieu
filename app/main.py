@@ -25,7 +25,7 @@ agent = LabAgent()
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     # Giữ correlation ID trong response header ngay cả khi lỗi không được try/except bên trong route xử lý
-    correlation_id = getattr(request.state, "correlation_id", "MISSING")
+    correlation_id = getattr(request.state, "correlation_id", "unknown")
     log.error(
         "unhandled_exception",
         service="api",
