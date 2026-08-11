@@ -3,6 +3,8 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
+from structlog.contextvars import get_contextvars
+
 from . import metrics
 from .mock_llm import FakeLLM
 from .mock_rag import retrieve
@@ -38,32 +40,27 @@ class LabAgent:
             message=message,
             enabled=tracing_enabled(),
         )
-                # Thêm import ở đầu file hoặc bên trong hàm:
-        from structlog.contextvars import get_contextvars
-
-        langfuse_client = get_langfuse_client()
-        langfuse_client.update_current_trace(
-            user_id=hash_user_id(user_id),
-            session_id=session_id,
-            tags=["lab", feature, self.model],
-            metadata={"correlation_id": get_contextvars().get("correlation_id", "MISSING")},
-        )
-
         response = self.llm.generate(prompt.text)
         quality_score = self._heuristic_quality(message, response.text, docs)
         latency_ms = int((time.perf_counter() - started) * 1000)
         cost_usd = self._estimate_cost(response.usage.input_tokens, response.usage.output_tokens)
 
+        # Gắn correlation_id vào trace để đối chiếu trace ↔ log (chỉ khi có thật ở runtime)
+        trace_metadata = {
+            "prompt_name": prompt.name,
+            "prompt_label": prompt.label,
+            "prompt_version": prompt.version,
+            "prompt_source": prompt.source,
+        }
+        correlation_id = get_contextvars().get("correlation_id")
+        if correlation_id:
+            trace_metadata["correlation_id"] = correlation_id
+
         langfuse_client.update_current_trace(
             user_id=hash_user_id(user_id),
             session_id=session_id,
             tags=["lab", feature, self.model],
-            metadata={
-                "prompt_name": prompt.name,
-                "prompt_label": prompt.label,
-                "prompt_version": prompt.version,
-                "prompt_source": prompt.source,
-            },
+            metadata=trace_metadata,
         )
         langfuse_client.update_current_generation(
             model=self.model,
