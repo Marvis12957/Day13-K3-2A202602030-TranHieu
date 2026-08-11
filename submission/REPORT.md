@@ -106,6 +106,8 @@
   quality (score 0–1). Nguồn dữ liệu: `data/logs.jsonl` + `GET /metrics`.
 
   ![Dashboard sáu panel](evidence/dashboard.png)
+
+  Bản HTML có thể mở trực tiếp: [dashboard.html](evidence/dashboard.html).
 - SLO đã chọn và lý do (`config/slo.yaml`, cửa sổ 28 ngày):
   - `latency_p95_ms ≤ 3000`, target 99.5% — baseline đo được P95 ≈ 160ms nên
     ngưỡng này rất thoáng cho vận hành bình thường, nhưng vẫn bắt được incident

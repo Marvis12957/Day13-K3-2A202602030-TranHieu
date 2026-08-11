@@ -1,6 +1,6 @@
 """Tạo dashboard 6 panel từ data/logs.jsonl (khớp config/dashboard.yaml).
 
-    python scripts/generate_dashboard.py [--out submission/evidence/dashboard.png] [--json]
+    python scripts/generate_dashboard.py [--out submission/evidence/dashboard.png] [--json] [--html]
 
 Đọc các event `request_received` / `response_sent` / `request_failed` trong
 data/logs.jsonl, tính 6 nhóm chỉ số và render ra PNG bằng matplotlib.
@@ -9,6 +9,7 @@ data/logs.jsonl, tính 6 nhóm chỉ số và render ra PNG bằng matplotlib.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import sys
 from collections import Counter
@@ -154,17 +155,91 @@ def render(s: dict, out: Path) -> None:
     print(f"Dashboard saved: {out}")
 
 
+def render_html(s: dict, out: Path) -> None:
+    def progress(value: float, maximum: float) -> float:
+        return min(100.0, max(0.0, value / maximum * 100)) if maximum else 0.0
+
+    def meter(value: float, maximum: float, color: str) -> str:
+        return f'<div class="meter"><span style="width:{progress(value, maximum):.1f}%;background:{color}"></span></div>'
+
+    traffic = s["per_min"]
+    max_traffic = max(traffic.values(), default=1)
+    traffic_bars = "".join(
+        f'<div class="spark-column"><i style="height:{max(8, count / max_traffic * 100):.0f}%"></i><small>{html.escape(minute)}</small></div>'
+        for minute, count in traffic.items()
+    ) or '<p class="muted">Chưa có request trong cửa sổ này.</p>'
+    error_rows = "".join(
+        f'<div class="breakdown-row"><span>{html.escape(str(name))}</span><b>{count}</b></div>'
+        for name, count in s["error_breakdown"].items()
+    ) or '<p class="muted">Không có request thất bại.</p>'
+    latency_max = max(THRESHOLDS["latency"], s["lat_p99"], 1.0)
+    quality_color = "#36d399" if s["quality_avg"] >= THRESHOLDS["quality"] else "#fb7185"
+    generated_at = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z")
+
+    page = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Day 13 AI Observability</title>
+  <style>
+    :root {{ color-scheme: dark; --bg:#09111f; --panel:#111c2e; --line:#26354e; --text:#e7eefc; --muted:#93a4c2; --green:#36d399; --amber:#fbbf24; --red:#fb7185; --blue:#60a5fa; --purple:#a78bfa; }}
+    * {{ box-sizing:border-box; }} body {{ margin:0; font:14px/1.45 Inter,Segoe UI,Arial,sans-serif; background:radial-gradient(circle at top right,#193052 0,transparent 35%),var(--bg); color:var(--text); }}
+    main {{ max-width:1440px; margin:auto; padding:34px; }} .top {{ display:flex; justify-content:space-between; gap:20px; align-items:start; margin-bottom:24px; }}
+    h1 {{ font-size:28px; margin:0 0 6px; letter-spacing:-.03em; }} h2 {{ font-size:15px; margin:0; }} .eyebrow,.muted,small {{ color:var(--muted); }} .eyebrow {{ text-transform:uppercase; letter-spacing:.12em; font-size:11px; font-weight:700; }}
+    .badge {{ border:1px solid var(--line); background:#0d1727; padding:8px 12px; border-radius:999px; color:#b9c8e5; white-space:nowrap; }}
+    .kpis,.grid {{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }} .kpis {{ grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:16px; }}
+    .card {{ background:linear-gradient(150deg,rgba(26,41,68,.94),rgba(15,25,43,.94)); border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:0 12px 30px rgba(0,0,0,.16); min-width:0; }}
+    .kpi-value {{ font-size:28px; font-weight:800; margin-top:4px; letter-spacing:-.04em; }} .status {{ display:inline-block; margin-top:8px; padding:3px 8px; border-radius:99px; font-size:11px; font-weight:700; background:rgba(54,211,153,.14); color:var(--green); }}
+    .status.warn {{ background:rgba(251,113,133,.14); color:var(--red); }} .panel-title {{ display:flex; justify-content:space-between; gap:12px; margin-bottom:18px; }} .panel-title span {{ color:var(--muted); font-size:12px; }}
+    .meter {{ height:9px; overflow:hidden; background:#0a1323; border-radius:999px; border:1px solid #1d2a40; }} .meter span {{ display:block; height:100%; border-radius:inherit; }}
+    .metric-row {{ display:grid; grid-template-columns:42px 1fr 58px; align-items:center; gap:10px; margin:13px 0; }} .metric-row b {{ text-align:right; }} .threshold {{ margin-top:14px; color:var(--muted); font-size:12px; }}
+    .spark {{ display:flex; align-items:end; height:126px; gap:7px; border-bottom:1px solid var(--line); padding:8px 0 0; }} .spark-column {{ min-width:20px; flex:1; height:100%; display:flex; flex-direction:column; justify-content:end; align-items:center; gap:5px; }} .spark-column i {{ width:100%; min-height:8px; border-radius:5px 5px 0 0; background:linear-gradient(#60a5fa,#2563eb); }} .spark-column small {{ font-size:9px; transform:rotate(-35deg); transform-origin:top right; white-space:nowrap; }}
+    .split {{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }} .big-number {{ font-size:32px; font-weight:800; }} .breakdown-row {{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line); color:#c8d5ed; }}
+    .token {{ margin:15px 0; }} .token-head {{ display:flex; justify-content:space-between; margin-bottom:7px; }} .ring {{ width:122px; height:122px; border-radius:50%; background:conic-gradient({quality_color} {progress(s['quality_avg'], 1):.1f}%,#1c2940 0); display:grid; place-items:center; margin:4px auto 12px; }} .ring div {{ width:94px; height:94px; display:grid; place-items:center; border-radius:50%; background:var(--panel); font-size:22px; font-weight:800; }}
+    @media (max-width:900px) {{ .kpis,.grid {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} }} @media (max-width:600px) {{ main {{ padding:18px; }} .top,.split {{ display:block; }} .badge {{ display:inline-block; margin-top:12px; }} .kpis,.grid {{ grid-template-columns:1fr; }} }}
+  </style>
+</head>
+<body><main>
+  <header class="top"><div><div class="eyebrow">Day 13 · AI observability</div><h1>Operational health at a glance</h1><div class="muted">Source: data/logs.jsonl · 6-panel dashboard contract</div></div><div class="badge">Last generated: {generated_at}<br>Window: 60 min · Refresh: 30 s</div></header>
+  <section class="kpis">
+    <article class="card"><div class="eyebrow">Requests</div><div class="kpi-value">{s['traffic']}</div><div class="status">Traffic tracked</div></article>
+    <article class="card"><div class="eyebrow">P95 latency</div><div class="kpi-value">{s['lat_p95']:.0f} ms</div><div class="status {'warn' if s['lat_p95'] > THRESHOLDS['latency'] else ''}">SLO ≤ {THRESHOLDS['latency']} ms</div></article>
+    <article class="card"><div class="eyebrow">Error rate</div><div class="kpi-value">{s['error_rate']:.2f}%</div><div class="status {'warn' if s['error_rate'] > THRESHOLDS['errors'] else ''}">SLO ≤ {THRESHOLDS['errors']}%</div></article>
+    <article class="card"><div class="eyebrow">Total cost</div><div class="kpi-value">${s['total_cost']:.4f}</div><div class="status {'warn' if s['total_cost'] > THRESHOLDS['cost'] else ''}">Budget ≤ ${THRESHOLDS['cost']}</div></article>
+  </section>
+  <section class="grid">
+    <article class="card" data-panel="latency"><div class="panel-title"><h2>1. Latency percentiles</h2><span>milliseconds</span></div>
+      <div class="metric-row"><span>P50</span>{meter(s['lat_p50'], latency_max, '#60a5fa')}<b>{s['lat_p50']:.0f}</b></div>
+      <div class="metric-row"><span>P95</span>{meter(s['lat_p95'], latency_max, '#fbbf24')}<b>{s['lat_p95']:.0f}</b></div>
+      <div class="metric-row"><span>P99</span>{meter(s['lat_p99'], latency_max, '#fb7185')}<b>{s['lat_p99']:.0f}</b></div><div class="threshold">SLO line: P95 ≤ {THRESHOLDS['latency']} ms</div></article>
+    <article class="card" data-panel="traffic"><div class="panel-title"><h2>2. Request traffic</h2><span>requests/min</span></div><div class="spark">{traffic_bars}</div><div class="threshold">Threshold: ≥ 1 request/min · total {s['traffic']} requests</div></article>
+    <article class="card" data-panel="errors"><div class="panel-title"><h2>3. Error rate &amp; breakdown</h2><span>percent</span></div><div class="split"><div><div class="big-number">{s['error_rate']:.2f}%</div>{meter(s['error_rate'], max(THRESHOLDS['errors'], 1), '#fb7185')}<div class="threshold">SLO line: ≤ {THRESHOLDS['errors']}%</div></div><div>{error_rows}</div></div></article>
+    <article class="card" data-panel="cost"><div class="panel-title"><h2>4. Cost over time</h2><span>USD</span></div><div class="big-number">${s['total_cost']:.4f}</div>{meter(s['total_cost'], THRESHOLDS['cost'], '#a78bfa')}<div class="split"><div class="threshold">Total window<br><b>${s['total_cost']:.4f}</b></div><div class="threshold">Average/request<br><b>${s['avg_cost']:.4f}</b></div></div><div class="threshold">Budget line: ≤ ${THRESHOLDS['cost']}</div></article>
+    <article class="card" data-panel="tokens"><div class="panel-title"><h2>5. Input &amp; output tokens</h2><span>tokens</span></div><div class="token"><div class="token-head"><span>Input</span><b>{s['tokens_in']:,}</b></div>{meter(s['tokens_in'], THRESHOLDS['tokens'], '#2dd4bf')}</div><div class="token"><div class="token-head"><span>Output</span><b>{s['tokens_out']:,}</b></div>{meter(s['tokens_out'], THRESHOLDS['tokens'], '#60a5fa')}</div><div class="threshold">Window threshold: ≤ {THRESHOLDS['tokens']:,}</div></article>
+    <article class="card" data-panel="quality"><div class="panel-title"><h2>6. Quality proxy</h2><span>score 0–1</span></div><div class="ring"><div>{s['quality_avg']:.2f}</div></div><div class="threshold" style="text-align:center">SLO line: ≥ {THRESHOLDS['quality']:.2f}</div></article>
+  </section>
+</main></body></html>"""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(page, encoding="utf-8")
+    print(f"HTML dashboard saved: {out}")
+
+
 def main() -> int:
     configure_utf8_stdio()
     parser = argparse.ArgumentParser(description="Sinh dashboard 6 panel từ data/logs.jsonl")
     parser.add_argument("--out", type=Path, default=Path("submission/evidence/dashboard.png"))
     parser.add_argument("--json", action="store_true", help="In ra số liệu JSON thay vì render ảnh")
+    parser.add_argument("--html", action="store_true", help="Xuất dashboard HTML tĩnh, self-contained")
     args = parser.parse_args()
 
     records = load_records()
     s = summarize(records)
     if args.json:
         print(json.dumps(s, ensure_ascii=False, indent=2))
+        return 0
+    if args.html:
+        render_html(s, args.out)
         return 0
     render(s, args.out)
     return 0
