@@ -16,7 +16,7 @@
 
 ## 3. Logging và tracing
 
-- Evidence correlation ID:
+- Evidence correlation ID: [submission/evidence/vai-a-correlation-id.md](evidence/vai-a-correlation-id.md) (Tuấn — Vai A)
 - Evidence PII redaction:
 - Evidence trace waterfall:
 - Giải thích một span đáng chú ý:
@@ -52,4 +52,5 @@ Với mỗi thành viên, ghi rõ nhiệm vụ và link commit/PR tương ứng.
 
 | Thành viên | Phần việc | Commit/PR | Điều đã học |
 |---|---|---|---|
+| Tuấn (Vai A — Logging & Middleware) | Correlation ID middleware (`app/middleware.py`), enrich log context + giữ correlation ID khi lỗi 500 (`app/main.py`), cập nhật `scripts/load_test.py` | branch `2a202601983-PhamQuocTuan`, commit "feat(vai-a): correlation ID middleware + log context enrichment (TICKET A1+A2)" | Vì sao phải `clear_contextvars()` đầu mỗi request để tránh rò rỉ context giữa các request chạy đồng thời; cách structlog contextvars tự động đính kèm field vào mọi log trong cùng request |
 | | | | |
