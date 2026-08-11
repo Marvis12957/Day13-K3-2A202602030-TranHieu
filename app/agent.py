@@ -45,26 +45,27 @@ class LabAgent:
         latency_ms = int((time.perf_counter() - started) * 1000)
         cost_usd = self._estimate_cost(response.usage.input_tokens, response.usage.output_tokens)
 
-        # Gắn correlation_id vào trace để đối chiếu trace ↔ log (chỉ khi có thật ở runtime)
-        trace_metadata = {
-            "prompt_name": prompt.name,
-            "prompt_label": prompt.label,
-            "prompt_version": prompt.version,
-            "prompt_source": prompt.source,
-        }
-        correlation_id = get_contextvars().get("correlation_id")
-        if correlation_id:
-            trace_metadata["correlation_id"] = correlation_id
+        # Cầu nối trace <-> log: cùng correlation_id với data/logs.jsonl.
+        # Đặt ở tags (để lọc được trên Langfuse UI) và ở generation metadata —
+        # KHÔNG đặt vào trace metadata vì tests/test_agent_prompt_trace.py yêu cầu
+        # trace metadata chứa đúng 4 key prompt_*.
+        correlation_id = get_contextvars().get("correlation_id", "MISSING")
 
         langfuse_client.update_current_trace(
             user_id=hash_user_id(user_id),
             session_id=session_id,
-            tags=["lab", feature, self.model],
-            metadata=trace_metadata,
+            tags=["lab", feature, self.model, f"cid:{correlation_id}"],
+            metadata={
+                "prompt_name": prompt.name,
+                "prompt_label": prompt.label,
+                "prompt_version": prompt.version,
+                "prompt_source": prompt.source,
+            },
         )
         langfuse_client.update_current_generation(
             model=self.model,
             metadata={
+                "correlation_id": correlation_id,
                 "doc_count": len(docs),
                 "query_preview": summarize_text(message),
                 "prompt_name": prompt.name,

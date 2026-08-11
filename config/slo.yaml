@@ -4,13 +4,24 @@ slis:
   latency_p95_ms:
     objective: 3000
     target: 99.5
-    note: Replace with your group's target
+    note: >-
+      Giữ mặc định 3000ms. Fake LLM sleep 0.15s nên baseline P95 chỉ ~800ms;
+      ngưỡng 3000ms vẫn bắt được incident rag_slow (thêm 2.5s ở bước retrieve).
   error_rate_pct:
     objective: 2
     target: 99.0
+    note: >-
+      Giữ mặc định 2%. Alert elevated_error_rate bắn ở mức 5% (cao hơn SLO) để
+      chỉ gọi on-call khi vượt xa mục tiêu, tránh alert nhiễu.
   daily_cost_usd:
     objective: 2.5
     target: 100.0
+    note: >-
+      Giữ mặc định 2.5 USD/ngày. Mỗi request ~0.002 USD nên ngân sách này đủ cho
+      khoảng 1200 request/ngày; scenario cost_spike (x4 output token) sẽ vượt.
   quality_score_avg:
     objective: 0.75
     target: 95.0
+    note: >-
+      Giữ mặc định 0.75. Đây là quality proxy heuristic, không phải đánh giá của
+      con người — dùng để phát hiện tụt chất lượng tương đối giữa các prompt version.
